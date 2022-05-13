@@ -15,6 +15,8 @@
 #include "types.h"
 #include "darwin_code.h"
 
+extern int vsprintf(char *buf, const char *fmt, va_list args);
+
 const unsigned short waStarts[] = {
  0, 4, 12, 20, 29, 42, 53, 56, // <-- (
  62, 67, 73, 81, 85, 91, 95, 100, // <-- 0
@@ -30,7 +32,7 @@ const unsigned short waStarts[] = {
  747, 756, 763, 769, 774, 779, 788 // <-- end of bitmap
 };
 
-const unsigned int uiPixelsX=789, uiPixelsY=16;
+const unsigned int uiPixelsX = 789, uiPixelsY = 16;
 
 const unsigned char baCharset[] = {
 0x00,0x00,0x00,0x35,0x13,0x53,0x00,0x00,0x00,0x00,0x00,0x00,0xA3,0x00,0x00,0x00,
@@ -430,40 +432,42 @@ const unsigned char baCharset[] = {
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFF
 };
 
-
 #define WIDTH_SPACE_PIXELS 5
 
 // returns number of x pixels taken up by ascii character bCharacter
-unsigned int BootVideoGetCharacterWidth(u8 bCharacter, bool fDouble)
-{
+unsigned int BootVideoGetCharacterWidth(u8 bCharacter, bool fDouble) {
 	unsigned int nStart, nWidth;
-	int nSpace=WIDTH_SPACE_PIXELS;
-	
-	if(fDouble) nSpace=8;
+	int          nSpace = WIDTH_SPACE_PIXELS;
+
+	if (fDouble) nSpace = 8;
 
 		// we only have glyphs for 0x21 through 0x7e inclusive
 
-	if(bCharacter<0x21) return nSpace;
-	if(bCharacter>0x7e) return nSpace;
+	if (bCharacter<0x21) return nSpace;
+	if (bCharacter>0x7e) return nSpace;
 
-	nStart=waStarts[bCharacter-0x21];
-	nWidth=waStarts[bCharacter-0x20]-nStart;
+	nStart = waStarts[bCharacter-0x21];
+	nWidth = waStarts[bCharacter-0x20]-nStart;
 
-	if(fDouble) return nWidth<<1; else return nWidth;
+	if (fDouble)
+    return nWidth<<1;
+  else
+    return nWidth;
 }
 
 // returns number of x pixels taken up by string
-unsigned int BootVideoGetStringTotalWidth(const char * szc) {
+unsigned int BootVideoGetStringTotalWidth(const char *szc) {
 	unsigned int nWidth=0;
-	bool fDouble=false;
-	while(*szc) {
-		if(*szc=='\2') {
-			fDouble=!fDouble;
+	bool         fDouble = false;
+	while (*szc) {
+		if (*szc == '\2') {
+			fDouble = !fDouble;
 			szc++;
 		} else {
-			nWidth+=BootVideoGetCharacterWidth(*szc++, fDouble);
+			nWidth += BootVideoGetCharacterWidth(*szc++, fDouble);
 		}
 	}
+
 	return nWidth;
 }
 
@@ -471,76 +475,74 @@ unsigned int BootVideoGetStringTotalWidth(const char * szc) {
 // usable for direct write or for prebuffered write
 // returns width of character in pixels
 // RGBA .. full-on RED is opaque --> 0xFF0000FF <-- red
-int BootVideoOverlayCharacter(
-	u32 * pdwaTopLeftDestination,
-	u32 m_dwCountBytesPerLineDestination,
-	RGBA rgbaColourAndOpaqueness,
-	u8 bCharacter,
-	bool fDouble
-) {
-	int nSpace;
-	unsigned int n, nStart, nWidth, y, nHeight
+int BootVideoOverlayCharacter(u32  *pdwaTopLeftDestination,
+	                            u32  m_dwCountBytesPerLineDestination,
+	                            RGBA rgbaColourAndOpaqueness,
+	                            u8   bCharacter,
+	                            bool fDouble) {
+	int          nSpace;
+	unsigned int n, nStart, nWidth, y, nHeight;
 //		nOpaquenessMultiplied,
 //		nTransparentnessMultiplied
-	;
-	u8 b=0, b1; // *pbColour=(u8 *)&rgbaColourAndOpaqueness;
-	u8 * pbaDestStart;
+
+	u8 b = 0, b1; // *pbColour=(u8 *)&rgbaColourAndOpaqueness;
+	u8 *pbaDestStart;
 
 		// we only have glyphs for 0x21 through 0x7e inclusive
 
-	if(bCharacter=='\t') {
-		u32 dw=((u32)pdwaTopLeftDestination) % m_dwCountBytesPerLineDestination;
-		u32 dw1=((dw+1)%(32<<2));  // distance from previous boundary
+	if (bCharacter == '\t') {
+		u32 dw = ((u32)pdwaTopLeftDestination) % m_dwCountBytesPerLineDestination;
+		u32 dw1 = ((dw+1)%(32<<2));  // distance from previous boundary
 		return ((32<<2)-dw1)>>2;
 	}
-	nSpace=WIDTH_SPACE_PIXELS;
-	if(fDouble) nSpace=8;
-	if(bCharacter<'!') return nSpace;
-	if(bCharacter>'~') return nSpace;
+	nSpace = WIDTH_SPACE_PIXELS;
+	if (fDouble) nSpace = 8;
+	if (bCharacter < '!') return nSpace;
+	if (bCharacter > '~') return nSpace;
 
-	nStart=waStarts[bCharacter-(' '+1)];
-	nWidth=waStarts[bCharacter-' ']-nStart;
-	nHeight=uiPixelsY;
+	nStart = waStarts[bCharacter-(' '+1)];
+	nWidth = waStarts[bCharacter-' ']-nStart;
+	nHeight = uiPixelsY;
 
-	if(fDouble) { nWidth<<=1; nHeight<<=1; }
+	if (fDouble) { nWidth <<= 1; nHeight <<= 1; }
 
 //	nStart=0;
 //	nWidth=300;
 
-	pbaDestStart=((u8 *)pdwaTopLeftDestination);
+	pbaDestStart = ((u8 *) pdwaTopLeftDestination);
 
-	for(y=0;y<nHeight;y++) {
-		u8 * pbaDest=pbaDestStart;
-		int n1=nStart;
+	for (y=0; y<nHeight; y++) {
+		u8  *pbaDest=pbaDestStart;
+		int n1 = nStart;
 
-		for(n=0;n<nWidth;n++) {
-			b=baCharset[n1>>1];
-			if(!(n1&1)) {
-				b1=b>>4;
+		for (n = 0; n < nWidth; n++) {
+			b = baCharset[n1>>1];
+			if (!(n1&1)) {
+				b1 = b>>4;
 			} else {
-				b1=b&0x0f;
+				b1 = b&0x0f;
 			}
-			if(fDouble) {
-				if(n & 1) n1++;
+			if (fDouble) {
+				if (n & 1) n1++;
 			} else {
 				n1++;
 			}
 
-		if(b1) {
-				*pbaDest=(u8)((b1*(rgbaColourAndOpaqueness&0xff))>>4); pbaDest++;
-				*pbaDest=(u8)((b1*((rgbaColourAndOpaqueness>>8)&0xff))>>4); pbaDest++;
-				*pbaDest=(u8)((b1*((rgbaColourAndOpaqueness>>16)&0xff))>>4); pbaDest++;
-				*pbaDest++=0xff;
+		if (b1) {
+				*pbaDest = (u8)((b1*(rgbaColourAndOpaqueness&0xff))>>4); pbaDest++;
+				*pbaDest = (u8)((b1*((rgbaColourAndOpaqueness>>8)&0xff))>>4); pbaDest++;
+				*pbaDest = (u8)((b1*((rgbaColourAndOpaqueness>>16)&0xff))>>4); pbaDest++;
+				*pbaDest++ = 0xff;
 			} else {
-				pbaDest+=4;
+				pbaDest += 4;
 			}
 		}
-		if(fDouble) {
-			if(y&1) nStart+=uiPixelsX;
+		if (fDouble) {
+			if (y&1) nStart += uiPixelsX;
 		} else {
-			nStart+=uiPixelsX;
+			nStart += uiPixelsX;
 		}
-		pbaDestStart+=m_dwCountBytesPerLineDestination;
+		pbaDestStart += m_dwCountBytesPerLineDestination;
 	}
 
 	return nWidth;
@@ -548,84 +550,84 @@ int BootVideoOverlayCharacter(
 
 // usable for direct write or for prebuffered write
 // returns width of string in pixels
-int BootVideoOverlayString(u32 * pdwaTopLeftDestination, u32 m_dwCountBytesPerLineDestination, RGBA rgbaOpaqueness, const char * szString)
-{
-	unsigned int uiWidth=0;
-	bool fDouble=0;
-	while((*szString != 0) && (*szString != '\n')) {
-		if(*szString=='\2') {
-			fDouble=!fDouble;
+int BootVideoOverlayString(u32 *pdwaTopLeftDestination,
+                           u32 m_dwCountBytesPerLineDestination,
+                           RGBA rgbaOpaqueness,
+                           const char *szString) {
+	unsigned int uiWidth = 0;
+	bool         fDouble=0;
+
+	while ((*szString != 0) && (*szString != '\n')) {
+		if (*szString == '\2') {
+			fDouble = !fDouble;
 		} else {
-			uiWidth+=BootVideoOverlayCharacter(
-				pdwaTopLeftDestination+uiWidth, m_dwCountBytesPerLineDestination, rgbaOpaqueness, *szString, fDouble
-				);
+			uiWidth += BootVideoOverlayCharacter(pdwaTopLeftDestination+uiWidth,
+                                           m_dwCountBytesPerLineDestination,
+                                           rgbaOpaqueness,
+                                           *szString,
+                                           fDouble);
 		}
 		szString++;
 	}
 	return uiWidth;
 }
 
-void BootVideoChunkedPrint(const char * szBuffer) {
-	int n=0;
-	int nDone=0;
+void BootVideoChunkedPrint(const char *szBuffer) {
+	int n = 0;
+	int nDone = 0;
 
-	while (szBuffer[n] != 0)
-	{
-		if(szBuffer[n]=='\n') {
+	while (szBuffer[n] != 0) {
+		if (szBuffer[n] == '\n') {
 			BootVideoOverlayString(
 				(u32 *)((mach_bp->video.addr) + VIDEO_CURSOR_POSY * (vmode.width*4) + VIDEO_CURSOR_POSX),
 				vmode.width*4, VIDEO_ATTR, &szBuffer[nDone]
 			);
-			nDone=n+1;
-			VIDEO_CURSOR_POSY+=16; 
-			VIDEO_CURSOR_POSX=vmode.xmargin<<2;
+			nDone = n + 1;
+			VIDEO_CURSOR_POSY += 16;
+			VIDEO_CURSOR_POSX = vmode.xmargin << 2;
 		}
 		n++;
 	}
-	if (n != nDone)
-	{
-		VIDEO_CURSOR_POSX+=BootVideoOverlayString(
-			(u32 *)((mach_bp->video.addr) + VIDEO_CURSOR_POSY * (vmode.width*4) + VIDEO_CURSOR_POSX),
+	if (n != nDone) {
+		VIDEO_CURSOR_POSX += BootVideoOverlayString(
+			(u32 *) ((mach_bp->video.addr) + VIDEO_CURSOR_POSY * (vmode.width*4) + VIDEO_CURSOR_POSX),
 			vmode.width*4, VIDEO_ATTR, &szBuffer[nDone]
-		)<<2;
-		if (VIDEO_CURSOR_POSX > (vmode.width - 
-			vmode.xmargin) <<2)
-		{
-			VIDEO_CURSOR_POSY+=16; 
-			VIDEO_CURSOR_POSX=vmode.xmargin<<2;
+		) << 2;
+		if (VIDEO_CURSOR_POSX > (vmode.width - vmode.xmargin) << 2) {
+			VIDEO_CURSOR_POSY += 16;
+			VIDEO_CURSOR_POSX = vmode.xmargin << 2;
 		}
-		
 	}
-
 }
 
 int printk(const char *szFormat, ...) {  // printk displays to video
-	char		szBuffer[512*2];
-	u16			wLength=0;
-	va_list		argList;
-	
+	char    szBuffer[512*2];
+	u16     wLength = 0;
+	va_list argList;
+
 	va_start(argList, szFormat);
-	wLength=(u16) vsprintf(szBuffer, szFormat, argList);
+	wLength = (u16) vsprintf(szBuffer, szFormat, argList);
 	va_end(argList);
 
-	szBuffer[sizeof(szBuffer)-1]=0;
-        if (wLength>(sizeof(szBuffer)-1)) wLength = sizeof(szBuffer)-1;
-	szBuffer[wLength]='\0';
-	        
+	szBuffer[sizeof(szBuffer)-1] = 0;
+  if (wLength > (sizeof(szBuffer)-1))
+    wLength = sizeof(szBuffer)-1;
+	szBuffer[wLength] = '\0';
+
 	BootVideoChunkedPrint(szBuffer);
+
 	return wLength;
 }
 
-int console_putchar(int c)
-{
+int console_putchar(int c) {
 	char buf[2];
-	buf[0] = (char)c;
+
+	buf[0] = (char) c;
 	buf[1] = 0;
 	BootVideoChunkedPrint(buf);
-	return (int)buf[0];	
+	return (int) buf[0];
 }
 
-int putchar(int c)
-{
+int putchar(int c) {
 	return console_putchar(c);
 }

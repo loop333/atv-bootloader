@@ -1,0 +1,8 @@
+.DS_Store
+*.o
+initrd.img
+vmlinuz
+debian/
+initramfs/
+initrd_tmp/
+ubuntu/

@@ -2,16 +2,17 @@
 #include	"linux_code.h"
 #include	"darwin_code.h"
 
+extern int printk(const char *szFormat, ...);
 
 // Descriptor table base addresses & limits for Linux startup.
 dt_addr_t gdt_addr = { 0x800, 0x94000 };
-dt_addr_t idt_addr = { 0, 0 }; 
+dt_addr_t idt_addr = { 0, 0 };
 
 // Initial GDT layout for Linux startup.
 uint16_t init_gdt[] = {
 	/* gdt[0]: (0x00) dummy */
-	0, 0, 0, 0, 
-	
+	0, 0, 0, 0,
+
 	/* gdt[1]: (0x08) unused */
 	0, 0, 0, 0,
 
@@ -59,9 +60,8 @@ uint16_t init_gdt[] = {
 	0x9200,		/* data read/write */
 	0x00CF,		/* granularity=4096, 386 (+5th nibble of limit) */
 };
- uint32_t init_gdt_size = sizeof(init_gdt);
- 
- 
+
+uint32_t init_gdt_size = sizeof(init_gdt);
 
 /*------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------*/
@@ -78,7 +78,7 @@ static void add_memory_region(struct e820entry *e820_map,
 	int x = *e820_nr_map;
 
 	if (x == E820MAX) {
-		printk(L"ATV: Too many entries in the memory map!\n");
+		printk("ATV: Too many entries in the memory map!\n");
 		return;
 	}
 
@@ -96,15 +96,15 @@ static void add_memory_region(struct e820entry *e820_map,
 /*------------------------------------------------------------------------------*/
 void fill_e820map(boot_params_t *bp)
 {
-	int						nr_map, e820_nr_map = 0, i;
-	UINT64					start, end, size;
-	efi_memory_desc_t		*md, *p;
-	struct e820entry		*e820_map;
+	int               nr_map, e820_nr_map = 0, i;
+	UINT64            start, end, size;
+	efi_memory_desc_t *md, *p;
+	struct e820entry  *e820_map;
 
 	nr_map = bp->s.efi_mem_map_size/bp->s.efi_mem_desc_size;
-	e820_map = (struct e820entry *)bp->s.e820_map;
+	e820_map = (struct e820entry *) bp->s.e820_map;
 
-	for (i = 0, p = (efi_memory_desc_t*)bp->s.efi_mem_map; i < nr_map; i++) {
+	for (i = 0, p = (efi_memory_desc_t *) bp->s.efi_mem_map; i < nr_map; i++) {
 		md = p;
 		switch (md->type) {
 			// ACPI tables -- to be preserved by loader/OS until ACPI is enable
@@ -114,7 +114,7 @@ void fill_e820map(boot_params_t *bp)
 						  md->phys_addr,
 						  md->num_pages << EFI_PAGE_SHIFT,
 						  E820_ACPI);
-			break;
+			  break;
 			// must be preserved by loader/OS in working an ACPI S1-S3 states
 			case EFI_RUNTIME_SERVICES_CODE:
 			case EFI_RUNTIME_SERVICES_DATA:
@@ -127,7 +127,7 @@ void fill_e820map(boot_params_t *bp)
 						  md->phys_addr,
 						  md->num_pages << EFI_PAGE_SHIFT,
 						  E820_RESERVED);
-			break;
+			  break;
 			// can be treaded as conventional memory by loader/OS
 			case EFI_LOADER_CODE:
 			case EFI_LOADER_DATA:
@@ -158,7 +158,7 @@ void fill_e820map(boot_params_t *bp)
 				}
 				add_memory_region(e820_map, &e820_nr_map,
 						  start, size, E820_RAM);
-			break;
+			  break;
 			// ACPI working memory --- should be preserved by loader/OS in the working
 			//  and ACPI S1-S3 states
 			case EFI_ACPI_MEMORY_NVS:
@@ -166,7 +166,7 @@ void fill_e820map(boot_params_t *bp)
 						  md->phys_addr,
 						  md->num_pages << EFI_PAGE_SHIFT,
 						  E820_NVS);
-			break;
+			  break;
 			default:
 				/* We should not hit this case */
 				printk("ATV: default add_memory_region, should not see this\n");
@@ -174,9 +174,9 @@ void fill_e820map(boot_params_t *bp)
 						  md->phys_addr,
 						  md->num_pages << EFI_PAGE_SHIFT,
 						  E820_RESERVED);
-			break;
+			  break;
 		}
-		p = (efi_memory_desc_t*)NextEFIMemoryDescriptor(p, bp->s.efi_mem_desc_size);
+		p = (efi_memory_desc_t *) NextEFIMemoryDescriptor(p, bp->s.efi_mem_desc_size);
 	}
 	bp->s.e820_nrmap = e820_nr_map;
 }
@@ -184,10 +184,10 @@ void fill_e820map(boot_params_t *bp)
 /*------------------------------------------------------------------------------*/
 void print_e820_memory_map(boot_params_t *bp)
 {
-	int					i;
-	struct e820entry	*e820_map;
-	
-	e820_map = (struct e820entry*)bp->s.e820_map;
+	int              i;
+	struct e820entry *e820_map;
+
+	e820_map = (struct e820entry *) bp->s.e820_map;
 
 	for (i = 0; i < bp->s.e820_nrmap; i++) {
 		printk("ATV: %s: 0x%08X%08X - 0x%08X%08X ", "E820 Map",
@@ -198,19 +198,19 @@ void print_e820_memory_map(boot_params_t *bp)
 		switch (e820_map[i].type) {
 			case E820_RAM:
 				printk("(usable)\n");
-			break;
+			  break;
 			case E820_RESERVED:
 				printk("(reserved)\n");
-			break;
+			  break;
 			case E820_ACPI:
 				printk("(ACPI data)\n");
-			break;
+			  break;
 			case E820_NVS:
 				printk("(ACPI NVS)\n");
-			break;
+			  break;
 			default:
 				printk("type %u\n", e820_map[i].type);
-			break;
+			  break;
 		}
 	}
 }
@@ -224,19 +224,19 @@ void quirk_fixup_efi_memmap(boot_params_t *bp)
 	a declared free ememory segment. This can cause code/data overwrites
 	and result in unknown crashes/hangs when running linux.
 	*/
-	int                     num_maps, i;
-	UINT64                  bgn, end, bgn_match, end_match;
-	efi_memory_desc_t       *md, *p;
+	int               num_maps, i;
+	UINT64            bgn, end, bgn_match, end_match;
+	efi_memory_desc_t *md, *p;
 
 	bgn_match = end_match = -1;
-	
+
 	num_maps = bp->s.efi_mem_map_size/bp->s.efi_mem_desc_size;
 
 	// gather up the offending memory ranges
 	// these are the two EFI_RUNTIME_SERVICES_CODE and one EFI_RUNTIME_SERVICES_DATA
 	// memmap sections. This routine assumes that the sections will appear in order
 	// which they seem to always do for the appleTV
-	for (i = 0, p = (efi_memory_desc_t*)bp->s.efi_mem_map; i < num_maps; i++) {
+	for (i = 0, p = (efi_memory_desc_t *) bp->s.efi_mem_map; i < num_maps; i++) {
 		md = p;
 
 		bgn = md->phys_addr;
@@ -260,17 +260,17 @@ void quirk_fixup_efi_memmap(boot_params_t *bp)
 				printk("0x%08X%08X], ", hi32(end), lo32(end) );
 				printk("%dMB\n", lo32(md->NumberOfPages >> (20 - EFI_PAGE_SHIFT)) );
 				*/
-			break;
+			  break;
 		}
 		p = NextEFIMemoryDescriptor(p, bp->s.efi_mem_desc_size);
 	}
 
-	for (i = 0, p = (efi_memory_desc_t*)bp->s.efi_mem_map; i < num_maps; i++) {
+	for (i = 0, p = (efi_memory_desc_t *) bp->s.efi_mem_map; i < num_maps; i++) {
 		md = p;
 
 		bgn = md->phys_addr;
 		end = md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT);
-		
+
 		/*
 		printk("mem%02d: type=%d, ", i, md->Type );
 		printk("attr=0x%08X%08X\n", hi32(md->Attribute), lo32(md->Attribute) );
@@ -278,12 +278,12 @@ void quirk_fixup_efi_memmap(boot_params_t *bp)
 		printk("0x%08X%08X], ", hi32(end), lo32(end) );
 		printk("%dMB\n", lo32(md->NumberOfPages >> (20 - EFI_PAGE_SHIFT)) );
 		*/
-		
+
 		// find problem free memory segment */
 		if ( (bgn == bgn_match) & (end >= end_match) ) {
-			UINT64		new_bgn, new_end, new_pages;
+			UINT64 new_bgn, new_end, new_pages;
 
-			//printk("   found memory overlap\n");                                                       
+			//printk("   found memory overlap\n");
 			//printk("   memory range=[0x%08X%08X-", hi32(bgn), lo32(bgn) );
 			//printk("0x%08X%08X]\n", hi32(end), lo32(end) );
 
@@ -292,8 +292,8 @@ void quirk_fixup_efi_memmap(boot_params_t *bp)
 
 			new_end = new_bgn + (new_pages << EFI_PAGE_SHIFT);
 			printk("ATV:   fixing memory overlap\n");
-			printk("ATV:   memory range=[0x%08X%08X-", hi32(new_bgn), lo32(new_bgn) );
-			printk("ATV:     0x%08X%08X]\n", hi32(new_end), lo32(new_end) );
+			printk("ATV:   memory range=[0x%08X%08X-", hi32(new_bgn), lo32(new_bgn));
+			printk("ATV:     0x%08X%08X]\n", hi32(new_end), lo32(new_end));
 
 			md->phys_addr = new_bgn;
 			md->num_pages = new_pages;
@@ -302,8 +302,8 @@ void quirk_fixup_efi_memmap(boot_params_t *bp)
 		p = NextEFIMemoryDescriptor(p, bp->s.efi_mem_desc_size);
 	}
 
-	for (i = 0, p = (efi_memory_desc_t*)bp->s.efi_mem_map; i < num_maps; i++) {
-		UINT64   target;
+	for (i = 0, p = (efi_memory_desc_t *) bp->s.efi_mem_map; i < num_maps; i++) {
+		UINT64 target;
 
 		target = 0x025AE000;
 		md = p;
@@ -312,7 +312,7 @@ void quirk_fixup_efi_memmap(boot_params_t *bp)
 		end = md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT);
 
 		if ( (bgn < target) & (end > target) ) {
-			UINT64          new_bgn, new_end, new_pages;
+			UINT64 new_bgn, new_end, new_pages;
 
 
 			new_bgn = bgn;
@@ -330,5 +330,3 @@ void quirk_fixup_efi_memmap(boot_params_t *bp)
 		p = NextEFIMemoryDescriptor(p, bp->s.efi_mem_desc_size);
 	}
 }
-
-

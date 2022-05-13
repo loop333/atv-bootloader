@@ -29,7 +29,11 @@
 #include "linux_code.h"
 #include "darwin_code.h"
 
-#define DEFAULT_FB_MEM  1024*1024*16
+extern int  printk(const char *szFormat, ...);
+extern void fill_e820map(boot_params_t *bp);
+extern void quirk_fixup_efi_memmap(boot_params_t *bp);
+
+#define DEFAULT_FB_MEM 1024*1024*16
 /*
  * Highest available base memory address.
  *
@@ -48,35 +52,34 @@ uint32_t high_base_mem = 0x90000;
  *
  * This is computed by taking the highest available extended memory
  * address and rounding down to the nearest EFI_PAGE_SIZE (usually
- * 4 kB) boundary.  
+ * 4 kB) boundary.
  * This is only used for backward compatibility.
  */
 uint32_t high_ext_mem = 63 * 1024 * 1024;
 
 /* This starting address will hold true for all of the loader types for now */
-void *kernel_start   = (VOID *)0x00100000;	/* 1M */
+void *kernel_start = (VOID *) 0x00100000;	/* 1M */
 uint32_t kernel_size = 0;
 
-void *initrd_start   = NULL;
+void *initrd_start = NULL;
 uint32_t initrd_size = 0;
 
 /*------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------*/
-int
-create_boot_params(boot_params_t *bp, char *cmdline)
+int create_boot_params(boot_params_t *bp, char *cmdline)
 {
-	uint16_t		hdr_version;
-	linux_header_t	org_linux_header;
+  uint16_t       hdr_version;
+  linux_header_t org_linux_header;
 
 	// save a copy of the original linux header
-	org_linux_header = *(linux_header_t*)bp;
-	//printk(" initrd_addr_max=0x%lx ", org_linux_header.initrd_addr_max);
-	//sleep(20);
-	
+	org_linux_header = *(linux_header_t *) bp;
+	// printk(" initrd_addr_max=0x%lx ", org_linux_header.initrd_addr_max);
+	// sleep(20);
+
 	// Save off our header revision information.
 	hdr_version = (bp->s.hdr_major << 8) | bp->s.hdr_minor;
 
-	//Clear out unused memory in boot sector image.
+	// Clear out unused memory in boot sector image.
 	bp->s.unused_1 = 0;
 	bp->s.unused_2 = 0;
 	memset(bp->s.unused_3, 0x00, sizeof bp->s.unused_3);
@@ -110,9 +113,9 @@ create_boot_params(boot_params_t *bp, char *cmdline)
 
 	// Setup command line information.
 	bp->s.cmdline_magik = CMDLINE_MAGIK;
-	bp->s.cmdline_offset = (UINT8*)cmdline - (UINT8*)bp;
+	bp->s.cmdline_offset = (UINT8 *) cmdline - (UINT8 *) bp;
 
-	// Clear out the cmdline_addr field so the kernel can find 
+	// Clear out the cmdline_addr field so the kernel can find
 	// the cmdline.
 	bp->s.cmdline_addr = 0x0;
 
@@ -125,7 +128,7 @@ create_boot_params(boot_params_t *bp, char *cmdline)
 	// Max Ram Memory info (Size of memory above 1MB in KB)
 	bp->s.alt_mem_k = high_ext_mem / 1024;
 	if (bp->s.alt_mem_k <= 65535) {
-		bp->s.ext_mem_k = (uint16_t)bp->s.alt_mem_k;
+		bp->s.ext_mem_k = (uint16_t) bp->s.alt_mem_k;
 	} else {
 		bp->s.ext_mem_k = 65535;
 	}
@@ -136,27 +139,26 @@ create_boot_params(boot_params_t *bp, char *cmdline)
 	bp->s.initrd_start  = 0;
 	bp->s.initrd_size   = 0;
 	if (initrd_start && initrd_size) {
-		bp->s.initrd_start = (uint32_t)initrd_start;
+		bp->s.initrd_start = (uint32_t) initrd_start;
 		bp->s.initrd_size  = initrd_size;
 		// This is the RAMdisk root device for RedHat 2.2.x
 		// kernels (major 0x01, minor 0x00).
 		bp->s.orig_root_dev= 0x0100;
 	}
-	//kernel_setup->initrd_addr_max = RAMSIZE_USE;
-	
+	// kernel_setup->initrd_addr_max = RAMSIZE_USE;
+
 	/*
 	// Find out the kernel's restriction on how high the initrd can be placed
 	(this is from etherboot -> linux_load.c -> load_initrd
 	if (hdr->protocol_version >= 0x203) {
 		max = hdr->initrd_addr_max;
 	} else {
-		max = 0x38000000; // Hardcoded value for older kernels 
+		max = 0x38000000; // Hardcoded value for older kernels
 	}
 	end = max;
 	start = end - size;
 	start &= ~0xfff; // page align
 	end = start + size;
-
 	*/
 
 	// APM BIOS info.
@@ -176,12 +178,12 @@ create_boot_params(boot_params_t *bp, char *cmdline)
 	// Pointing device presence.  The kernel will detect this.
 	bp->s.aux_dev_info = NO_MOUSE;
 
-	// EFI loader signature 
+	// EFI loader signature
 	//memcpy(bp->s.efi_loader_sig, EFI_LOADER_SIG, 4);
 	memset(bp->s.efi_loader_sig, 0, 4);
 
 	// Kernel entry point.
-	bp->s.kernel_start = (UINT32)kernel_start;
+	bp->s.kernel_start = (UINT32) kernel_start;
 
 
 	// video info
@@ -189,32 +191,32 @@ create_boot_params(boot_params_t *bp, char *cmdline)
 	bp->s.orig_y			= 24;
 	bp->s.orig_video_cols	= 80;
 	bp->s.orig_video_rows	= 25;
-	bp->s.orig_video_points = 16; 
+	bp->s.orig_video_points = 16;
 	bp->s.orig_video_page	= 0;
 
 	// check mach_kernel boot params for framebuffer type
-	if ( strstr(mach_bp->cmdline, "video=efifb") ) {
+	if (strstr(mach_bp->cmdline, "video=efifb")) {
 		// EFI linear frame buffer
 		bp->s.is_vga = VIDEO_TYPE_EFI;
 		bp->s.orig_video_mode = 0;
 		//
-	} else if ( strstr(mach_bp->cmdline, "video=imac_fb") ) {
+	} else if (strstr(mach_bp->cmdline, "video=imac_fb")) {
 		// iMac EFI linear frame buffer
 		// this only works if imac_fb has appletv patches or else
 		// imac_fb will fail to load because of the DMI name check.
-		bp->s.is_vga = 0;	
+		bp->s.is_vga = 0;
 		bp->s.orig_video_mode = 3; // what is mode = 3 ???
 		//
-	} else if ( strstr(mach_bp->cmdline, "video=vesafb") ) {
+	} else if (strstr(mach_bp->cmdline, "video=vesafb")) {
 		// VESA linear frame buffer
-		// vesafb seems to work but might fail if any video bios 
+		// vesafb seems to work but might fail if any video bios
 		// calls are done -- no pc bios/video bios present
-		bp->s.is_vga = VIDEO_TYPE_VLFB;	
+		bp->s.is_vga = VIDEO_TYPE_VLFB;
 		bp->s.orig_video_mode = 0;
 		//
 	} else {
 		// default to vesafb
-		bp->s.is_vga = VIDEO_TYPE_VLFB;	
+		bp->s.is_vga = VIDEO_TYPE_VLFB;
 		bp->s.orig_video_mode = 0;
 	}
 	//bp->s.is_vga			= 1; // VGA in standard 80x25 text mode
@@ -228,12 +230,12 @@ create_boot_params(boot_params_t *bp, char *cmdline)
 	bp->s.lfb_depth			= mach_bp->video.depth;
 	bp->s.lfb_base			= mach_bp->video.addr;
 	bp->s.lfb_size			= DEFAULT_FB_MEM / 65536; // 256	// size in 64k units
-	bp->s.lfb_line_len		= mach_bp->video.rowb;
+	bp->s.lfb_line_len  = mach_bp->video.rowb;
 	bp->s.lfb_pages			= (DEFAULT_FB_MEM + 4095) / 4096;	// size in page units
 	//bp->s.lfb_pages			= 1;
-	bp->s.lfb_red_size		= 8;
+	bp->s.lfb_red_size  = 8;
 	bp->s.lfb_red_pos		= 16;
-	bp->s.lfb_green_size		= 8;
+	bp->s.lfb_green_size	= 8;
 	bp->s.lfb_green_pos		= 8;
 	bp->s.lfb_blue_size		= 8;
 	bp->s.lfb_blue_pos		= 0;
@@ -242,12 +244,12 @@ create_boot_params(boot_params_t *bp, char *cmdline)
 	bp->s.vesa_seg			= 0;
 	bp->s.vesa_off			= 0;
 
-	bp->s.efi_mem_map		= mach_bp->efi_mem_map;
+	bp->s.efi_mem_map       = mach_bp->efi_mem_map;
 	bp->s.efi_mem_map_size	= mach_bp->efi_mem_map_size;
 	bp->s.efi_mem_desc_size = mach_bp->efi_mem_desc_size;
 	bp->s.efi_mem_desc_ver	= mach_bp->efi_mem_desc_ver;
-	bp->s.efi_sys_tbl		= mach_bp->efi_sys_tbl;
-	
+	bp->s.efi_sys_tbl       = mach_bp->efi_sys_tbl;
+
 	printk("ATV: fixup efi memmap\n");
 	quirk_fixup_efi_memmap(bp);
 	//
@@ -260,67 +262,65 @@ create_boot_params(boot_params_t *bp, char *cmdline)
 	//sleep(60);
 	//
 	//
-	
-	efi_system_table_t	*system_table;
-	efi_config_table_t	*config_tables;
-	int					i, num_config_tables;
-	efi_linux_table		efi;
-	
-	system_table		= (efi_system_table_t*)mach_bp->efi_sys_tbl;
+
+	efi_system_table_t *system_table;
+	efi_config_table_t *config_tables;
+	int                i, num_config_tables;
+	efi_linux_table    efi;
+
+	system_table = (efi_system_table_t *) mach_bp->efi_sys_tbl;
 	num_config_tables	= system_table->nr_tables;
-	config_tables		= (efi_config_table_t*)system_table->tables;
+	config_tables = (efi_config_table_t *) system_table->tables;
 
 	// Let's see what config tables the efi firmware passed to us.
 	for (i = 0; i < num_config_tables; i++) {
 		if (efi_guidcmp(config_tables[i].guid, MPS_TABLE_GUID) == 0) {
-			efi.mps = (void*)config_tables[i].table;
+			efi.mps = (void *) config_tables[i].table;
 			//printk(" MPS=0x%lx ", config_tables[i].table);
 			//
 		} else if (efi_guidcmp(config_tables[i].guid, ACPI_20_TABLE_GUID) == 0) {
-			efi.acpi20 = (void*)config_tables[i].table;
+			efi.acpi20 = (void *) config_tables[i].table;
 			//printk(" ACPI 2.0=0x%lx ", config_tables[i].table);
 			//
 		} else if (efi_guidcmp(config_tables[i].guid, ACPI_TABLE_GUID) == 0) {
-			efi.acpi = (void*)config_tables[i].table;
+			efi.acpi = (void *) config_tables[i].table;
 			//printk(" ACPI=0x%lx ", config_tables[i].table);
 			//
 		} else if (efi_guidcmp(config_tables[i].guid, SMBIOS_TABLE_GUID) == 0) {
-			efi.smbios = (void*) config_tables[i].table;
+			efi.smbios = (void *) config_tables[i].table;
 			//printk(" SMBIOS=0x%lx ", config_tables[i].table);
 			//
 		} else if (efi_guidcmp(config_tables[i].guid, HCDP_TABLE_GUID) == 0) {
-			efi.hcdp = (void*)config_tables[i].table;
+			efi.hcdp = (void *) config_tables[i].table;
 			//printk(" HCDP=0x%lx ", config_tables[i].table);
 			//
 		} else if (efi_guidcmp(config_tables[i].guid, UGA_IO_PROTOCOL_GUID) == 0) {
-			efi.uga = (void*)config_tables[i].table;
+			efi.uga = (void *) config_tables[i].table;
 			//printk(" UGA=0x%lx ", config_tables[i].table);
 		}
 	}
 	//printk("\n");
 
 	// rsdp_low_mem is unsigned long so alignment below works
-	unsigned long		rsdp_low_mem   = 0xF8000;
-	unsigned long		smbios_low_mem = 0xF8100;
+	unsigned long rsdp_low_mem   = 0xF8000;
+	unsigned long smbios_low_mem = 0xF8100;
 	//
 	printk("ATV: clone ACPI entry to %lx...\n", rsdp_low_mem);
 	// We need at copy the RSDP down low so linux can find it
 	// copy RSDP table entry from efi location to low mem location
-	memcpy((void*)rsdp_low_mem, efi.acpi20, sizeof(acpi_rsdp_t) );
+	memcpy((void *) rsdp_low_mem, efi.acpi20, sizeof(acpi_rsdp_t));
 
 	printk("ATV: clone SMBIOS entry to %lx...\n", smbios_low_mem);
 	// We need at copy the SMBIOS Table Entry Point down low so linux can find it
 	// copy SMBIOS Table Entry Point from efi location to low mem location
-	memcpy((void*)smbios_low_mem, efi.smbios, sizeof(smbios_entry_t) );
+	memcpy((void *) smbios_low_mem, efi.smbios, sizeof(smbios_entry_t));
 	return(0);
 }
-
 
 /*------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------*/
 // How to jump to kernel code
-void
-start_kernel(void *kentry, boot_params_t *bp)
+void start_kernel(void *kentry, boot_params_t *bp)
 {
 	// Disable interrupts.
 	asm volatile ( "cli" : : );
@@ -328,25 +328,25 @@ start_kernel(void *kentry, boot_params_t *bp)
 	// Relocate initrd, if present.
 	if (bp->s.initrd_start) {
 		unsigned long	initrd_base;
-		
-		initrd_base = DARWIN_IMAGE_BASE - PAGE_ALIGN( bp->s.initrd_size );
-		memcpy((void*)initrd_base, (void*)bp->s.initrd_start, bp->s.initrd_size);
+
+		initrd_base = DARWIN_IMAGE_BASE - PAGE_ALIGN(bp->s.initrd_size);
+		memcpy((void *) initrd_base, (void *) bp->s.initrd_start, bp->s.initrd_size);
 		bp->s.initrd_start = initrd_base;
 		//memcpy((void*)(15 * 1024 * 1024), (void*)bp->s.initrd_start, bp->s.initrd_size);
 		//bp->s.initrd_start = 15 * 1024 * 1024;
 	}
-	
+
 	// Copy boot sector, setup data and command line
 	// to final resting place.  We need to copy
 	// BOOT_PARAM_MEMSIZE bytes.
-	memcpy((void*)high_base_mem, bp, 0x4000);
+	memcpy((void *) high_base_mem, bp, 0x4000);
 	// update cmdline_addr
-	bp = (boot_params_t*)high_base_mem;
+	bp = (boot_params_t *) high_base_mem;
 	bp->s.cmdline_addr = high_base_mem + bp->s.cmdline_offset;
 
 	// Initialize Linux GDT.
-	memset((void*)gdt_addr.base, 0x00, gdt_addr.limit);
-	memcpy((void*)gdt_addr.base, init_gdt, init_gdt_size );
+	memset((void *) gdt_addr.base, 0x00, gdt_addr.limit);
+	memcpy((void *) gdt_addr.base, init_gdt, init_gdt_size);
 
 	// Load descriptor table pointers.
 	asm volatile ( "lidt %0" : : "m" (idt_addr) );
@@ -362,5 +362,3 @@ start_kernel(void *kentry, boot_params_t *bp)
 	// Jump to kernel entry point.
 	asm volatile ( "jmp *%%ecx" : : );
 }
-
-

@@ -14,7 +14,7 @@ extern void		*initrd_start;
 extern uint32_t initrd_size;
 
 
-int		create_boot_params(boot_params_t *bp, char *cmdline);
-void	start_kernel(void *kentry, boot_params_t *bp);
+int  create_boot_params(boot_params_t *bp, char *cmdline);
+void start_kernel(void *kentry, boot_params_t *bp);
 
 #endif

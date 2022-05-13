@@ -298,7 +298,7 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 			flags |= SIGN;
 		case 'u':
 			break;
-		case '@': 
+		case '@':
 		{
 			unsigned char *r;
 			union {
@@ -316,7 +316,10 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 			unsigned char *r;
 			unsigned char *p = va_arg(args, unsigned char *);
 			for (r = p + ETH_ALEN; p < r; ++p)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat"
 					str += sprintf(str, "%02hX:", *p);
+#pragma clang diagnostic pop
 			--str;
 			continue;
 		}
@@ -329,7 +332,7 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 				--fmt;
 			continue;
 		}
-  
+
 		if (qualifier == 'l')
 			num = va_arg(args, unsigned long);
 		else if (qualifier == 'h') {
