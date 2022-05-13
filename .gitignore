@@ -2,6 +2,7 @@
 *.o
 initrd.img
 vmlinuz
+mach_kernel
 debian/
 initramfs/
 initrd_tmp/
