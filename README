@@ -1,3 +1,9 @@
+modifying to compile with
+Apple LLVM version 10.0.0 (clang-1000.11.45.5)
+
+
+
+ 
 atv-bootloader (March 10 2008)
 
 This bootloader works by embedding a Linux kernel/initrd into "mach kernel" that boot.efi loads. Right now it's very simplistic and will boot to login prompt. user = root, password = root. parted is present as well as hfsplus tools for creating gpt partitions and formating them as ext2/3 and hfs/hfsplus. Also present is kexec to bootload another kernel. Typical usage is;
@@ -19,4 +25,3 @@ Make a kexec bootloader. Make the recovery bits like normal, add a script at the
 
 
 Special thanks to "Edgar (gimli) Hucek" for the 1st boot and original code (mach_linux_boot) and James McKenzie of Mythic-Beasts for mb_boot_tv.
-
