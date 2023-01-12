@@ -45,10 +45,4 @@ typedef struct {
 	u32 xmargin;
 } CURRENT_VIDEO_MODE_DETAILS;
 
-volatile CURRENT_VIDEO_MODE_DETAILS vmode;
-
-volatile uint32_t VIDEO_CURSOR_POSY;
-volatile uint32_t VIDEO_CURSOR_POSX;
-volatile uint32_t VIDEO_ATTR;
-
 #endif

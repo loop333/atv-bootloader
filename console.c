@@ -17,6 +17,11 @@
 
 extern int vsprintf(char *buf, const char *fmt, va_list args);
 
+extern volatile CURRENT_VIDEO_MODE_DETAILS vmode;
+extern volatile uint32_t VIDEO_CURSOR_POSY;
+extern volatile uint32_t VIDEO_CURSOR_POSX;
+extern volatile uint32_t VIDEO_ATTR;
+
 const unsigned short waStarts[] = {
  0, 4, 12, 20, 29, 42, 53, 56, // <-- (
  62, 67, 73, 81, 85, 91, 95, 100, // <-- 0

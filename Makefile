@@ -4,11 +4,20 @@
 # size -m mach_kernel
 #
 #
+# get OS type from shell
+OSTYPE  = $(shell uname)
+#
 ARCH	= i386
+# if Linux, attempt to use osxcross with clang; otherwise use cc on osx (will not build on 10.15 or later)
+ifeq ($(OSTYPE), Linux)
+	CC  := i386-apple-darwin8-clang
+	LD  := i386-apple-darwin8-ld
+	LDFLAGS =
+else
+	CC  := cc
+	LD  := ld
+endif
 
-CC  := /usr/bin/gcc
-LD  := /usr/bin/ld
-LDFLAGS =
 
 # start.o must be 1st in the link order (ld below)
 OBJ	= start.o vsprintf.o console.o utils.o elilo_code.o darwin_code.o linux_code.o boot_loader.o

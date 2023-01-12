@@ -54,6 +54,12 @@ mach_boot_parms *mach_bp;
 #define KERNEL_RESERVE_SIZE 0x00400000
 #define BOOT_PARAM_MEMSIZE  0x00004000	// 16384
 /**********************************************************************/
+
+volatile CURRENT_VIDEO_MODE_DETAILS vmode;
+volatile uint32_t VIDEO_CURSOR_POSY;
+volatile uint32_t VIDEO_CURSOR_POSX;
+volatile uint32_t VIDEO_ATTR;
+
 void load_linux(unsigned int args)
 {
 	int           i;
